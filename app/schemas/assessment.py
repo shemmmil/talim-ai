@@ -5,7 +5,8 @@ from uuid import UUID
 
 
 class AssessmentCreate(BaseModel):
-    direction: str  # Текст направления, например "backend(golang, sql)"
+    direction: str  # Название направления, например "backend"
+    technology: Optional[str] = None  # Название технологии, например "go" или "php"
 
 
 class CompetencyInfo(BaseModel):

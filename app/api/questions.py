@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from typing import Optional, Dict
 from uuid import UUID
-import uuid
 import logging
 from app.api.deps import get_supabase_service, get_openai_service, get_current_user_id
 from app.services.supabase_service import SupabaseService
@@ -26,29 +25,29 @@ def get_assessment_service(
 @router.post(
     "/generate",
     response_model=QuestionGenerateResponse,
-    summary="Сгенерировать вопрос",
-    description="Генерирует адаптивный вопрос для тестирования компетенции через GPT-4. "
-                "Вопрос генерируется на основе предыдущих ответов и выявленных пробелов в знаниях."
+    summary="Получить вопрос",
+    description="Получает вопрос для тестирования компетенции из базы данных. "
+                "Вопрос должен быть предварительно добавлен в БД."
 )
 async def generate_question(
     assessment_id: UUID = Form(..., description="ID тестирования"),
     competency_id: UUID = Form(..., description="ID компетенции"),
-    question_number: int = Form(..., description="Номер вопроса (1-7)", ge=1, le=7),
+    question_number: int = Form(..., description="Номер вопроса (1-5)", ge=1, le=5),
     difficulty: Optional[int] = Form(None, description="Уровень сложности (1-5). Если не указан, определяется автоматически", ge=1, le=5),
     assessment_service: AssessmentService = Depends(get_assessment_service),
     supabase_service: SupabaseService = Depends(get_supabase_service),
-    openai_service: OpenAIService = Depends(get_openai_service),
     user_id: str = Depends(get_current_user_id)
 ):
     """
-    Сгенерировать новый адаптивный вопрос для тестирования компетенции.
+    Получить вопрос для тестирования компетенции из базы данных.
     
     - **assessment_id**: ID активного тестирования
-    - **competency_id**: ID компетенции, по которой генерируется вопрос
-    - **question_number**: Номер вопроса в последовательности (от 1 до 7)
+    - **competency_id**: ID компетенции, по которой запрашивается вопрос
+    - **question_number**: Номер вопроса в последовательности (от 1 до 5)
     - **difficulty**: Опциональный уровень сложности (1-5). Если не указан, определяется автоматически на основе предыдущих ответов
     
-    Возвращает сгенерированный вопрос, его сложность и ожидаемое время ответа.
+    Возвращает вопрос из БД, его сложность и ожидаемое время ответа.
+    Если вопрос не найден, возвращает ошибку 404.
     """
     try:
         # Проверяем доступ к assessment
@@ -88,30 +87,39 @@ async def generate_question(
         if not competency:
             raise HTTPException(status_code=404, detail="Competency not found")
 
-        # Используем направление из контекста или название компетенции
-        role_name = "Техническое направление"  # Упрощенное название, т.к. направление не хранится
-
-        # Генерируем вопрос динамически на основе предыдущих ответов
-        question_data = await openai_service.generate_question(
-            role_name=role_name,
-            competency_name=competency.get('name', ''),
-            competency_description=competency.get('description', ''),
-            question_number=question_number,
+        # Ищем вопрос в БД
+        stored_question = await supabase_service.find_question(
+            competency_id=str(competency_id),
             difficulty=difficulty,
-            previous_answers=context.get('previous_answers'),
-            knowledge_gaps=context.get('knowledge_gaps')
+            question_number=question_number
         )
 
-        # НЕ сохраняем вопрос в БД - он будет сохранен только после ответа
-        # Возвращаем вопрос с временным ID (можно использовать UUID для идентификации на фронтенде)
-        temp_question_id = str(uuid.uuid4())
+        if not stored_question:
+            # Вопрос не найден в БД
+            competency_name = competency.get('name', 'Unknown') if competency else 'Unknown'
+            raise HTTPException(
+                status_code=404,
+                detail=f"Question not found for competency '{competency_name}' with difficulty {difficulty} and number {question_number}. "
+                       f"Please add questions to the database first."
+            )
+
+        # Используем сохраненный вопрос
+        logger.info(f"Using stored question from DB: {stored_question['id']}")
+        
+        # Увеличиваем счетчик использования
+        await supabase_service.increment_question_usage(str(stored_question['id']))
+        
+        question_text = stored_question['question_text']
+        expected_key_points = stored_question.get('expected_key_points', [])
+        estimated_answer_time = stored_question.get('estimated_answer_time', '1-2 минуты')
+        question_id = stored_question['id']
 
         return QuestionGenerateResponse(
-            questionId=UUID(temp_question_id),  # Временный ID для фронтенда
-            questionText=question_data['question'],
+            questionId=UUID(question_id),
+            questionText=question_text,
             difficulty=difficulty,
-            estimatedAnswerTime=question_data.get('estimatedAnswerTime', '1-2 минуты'),
-            expectedKeyPoints=question_data.get('expectedKeyPoints', [])
+            estimatedAnswerTime=estimated_answer_time,
+            expectedKeyPoints=expected_key_points
         )
 
     except HTTPException:
@@ -133,6 +141,7 @@ async def submit_answer(
     competency_id: UUID = Form(..., description="ID компетенции"),
     question_text: str = Form(..., description="Текст вопроса, на который отвечает пользователь"),
     difficulty: int = Form(3, description="Сложность вопроса (1-5)", ge=1, le=5),
+    question_id: Optional[UUID] = Form(None, description="ID вопроса из БД (если был использован сохраненный вопрос)"),
     audio: UploadFile = File(..., description="Аудио файл с ответом (webm, mp3, wav, m4a, ogg). Максимум 25MB"),
     assessment_service: AssessmentService = Depends(get_assessment_service),
     supabase_service: SupabaseService = Depends(get_supabase_service),
@@ -216,12 +225,32 @@ async def submit_answer(
             difficulty=difficulty
         )
 
+        # Используем переданный question_id или пытаемся найти вопрос по тексту
+        stored_question_id = None
+        if question_id:
+            stored_question_id = str(question_id)
+            logger.info(f"Using provided question_id: {stored_question_id}")
+        else:
+            # Пытаемся найти сохраненный вопрос по тексту и компетенции
+            try:
+                stored_question = await supabase_service.find_question(
+                    competency_id=str(competency_id),
+                    difficulty=difficulty
+                )
+                # Проверяем, что текст совпадает (примерно)
+                if stored_question and stored_question.get('question_text') == question_text:
+                    stored_question_id = str(stored_question['id'])
+                    logger.info(f"Found stored question by text: {stored_question_id}")
+            except Exception as e:
+                logger.warning(f"Could not find stored question: {e}")
+
         # Сохраняем вопрос и ответ в БД (впервые, только после ответа)
         question_history = await supabase_service.create_question_history(
             competency_assessment_id=str(competency_assessment_id),
             question_text=question_text,
             difficulty_level=difficulty,
-            question_type=None
+            question_type=None,
+            question_id=stored_question_id
         )
 
         if not question_history or 'id' not in question_history:

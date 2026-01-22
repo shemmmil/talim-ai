@@ -106,14 +106,27 @@ class SupabaseService:
             logger.error(f"Error creating assessment: {e}")
             raise
 
-    async def create_assessment_without_role(self, user_id: str) -> Dict:
+    async def create_assessment_without_role(
+        self, 
+        user_id: str, 
+        direction_id: Optional[str] = None,
+        technology_id: Optional[str] = None
+    ) -> Dict:
         """Создать новое тестирование без привязки к роли"""
         try:
-            response = self.client.table('assessments').insert({
+            assessment_data = {
                 'user_id': user_id,
-                'role_id': None,  # Не храним направление в БД
+                'role_id': None,
                 'status': 'in_progress'
-            }).execute()
+            }
+            
+            if direction_id:
+                assessment_data['direction_id'] = direction_id
+            
+            if technology_id:
+                assessment_data['technology_id'] = technology_id
+            
+            response = self.client.table('assessments').insert(assessment_data).execute()
             return response.data[0]
         except Exception as e:
             logger.error(f"Error creating assessment: {e}")
@@ -152,11 +165,248 @@ class SupabaseService:
             logger.error(f"Error finding/creating competency: {e}")
             raise
 
+    # === DIRECTIONS ===
+
+    async def find_or_create_direction(
+        self,
+        name: str,
+        display_name: Optional[str] = None,
+        technologies: Optional[str] = None,
+        description: Optional[str] = None
+    ) -> Dict:
+        """Найти направление по имени или создать новое"""
+        try:
+            # Ищем существующее направление
+            response = self.client.table('directions') \
+                .select('*') \
+                .eq('name', name.lower()) \
+                .limit(1) \
+                .execute()
+            
+            if response.data:
+                return response.data[0]
+            
+            # Создаем новое направление
+            direction_data = {
+                'name': name.lower(),
+                'display_name': display_name or name,
+                'description': description
+            }
+            
+            if technologies:
+                direction_data['technologies'] = technologies
+            
+            response = self.client.table('directions').insert(direction_data).execute()
+            
+            if not response.data or len(response.data) == 0:
+                raise ValueError("Failed to create direction - no data returned")
+            
+            return response.data[0]
+        except Exception as e:
+            logger.error(f"Error finding/creating direction: {e}")
+            raise
+
+    async def get_direction(self, direction_id: str) -> Optional[Dict]:
+        """Получить направление по ID"""
+        try:
+            response = self.client.table('directions') \
+                .select('*') \
+                .eq('id', direction_id) \
+                .maybe_single() \
+                .execute()
+            
+            return response.data
+        except Exception as e:
+            logger.error(f"Error fetching direction: {e}")
+            raise
+
+    async def get_all_directions(self) -> List[Dict]:
+        """Получить все направления"""
+        try:
+            response = self.client.table('directions') \
+                .select('*') \
+                .order('name') \
+                .execute()
+            
+            return response.data if response.data else []
+        except Exception as e:
+            logger.error(f"Error fetching directions: {e}")
+            raise
+
+    async def get_direction_competencies(self, direction_id: str) -> List[Dict]:
+        """Получить компетенции для направления"""
+        try:
+            response = self.client.table('direction_competencies') \
+                .select('*, competencies(*)') \
+                .eq('direction_id', direction_id) \
+                .order('order_index') \
+                .execute()
+            
+            return response.data if response.data else []
+        except Exception as e:
+            logger.error(f"Error fetching direction competencies: {e}")
+            raise
+
+    async def create_direction_competency(
+        self,
+        direction_id: str,
+        competency_id: str,
+        order_index: Optional[int] = None
+    ) -> Dict:
+        """Создать связь между направлением и компетенцией"""
+        try:
+            data = {
+                'direction_id': direction_id,
+                'competency_id': competency_id
+            }
+            
+            if order_index is not None:
+                data['order_index'] = order_index
+            
+            response = self.client.table('direction_competencies').insert(data).execute()
+            
+            if not response.data or len(response.data) == 0:
+                raise ValueError("Failed to create direction_competency - no data returned")
+            
+            return response.data[0]
+        except Exception as e:
+            logger.error(f"Error creating direction_competency: {e}")
+            raise
+
+    # === TECHNOLOGIES ===
+
+    async def find_or_create_technology(
+        self,
+        name: str,
+        description: Optional[str] = None
+    ) -> Dict:
+        """Найти технологию по имени или создать новую"""
+        try:
+            # Ищем существующую технологию
+            response = self.client.table('technologies') \
+                .select('*') \
+                .eq('name', name.lower()) \
+                .limit(1) \
+                .execute()
+            
+            if response.data:
+                return response.data[0]
+            
+            # Создаем новую технологию
+            technology_data = {
+                'name': name.lower(),
+                'description': description
+            }
+            
+            response = self.client.table('technologies').insert(technology_data).execute()
+            
+            if not response.data or len(response.data) == 0:
+                raise ValueError("Failed to create technology - no data returned")
+            
+            return response.data[0]
+        except Exception as e:
+            logger.error(f"Error finding/creating technology: {e}")
+            raise
+
+    async def get_technology(self, technology_id: str) -> Optional[Dict]:
+        """Получить технологию по ID"""
+        try:
+            response = self.client.table('technologies') \
+                .select('*') \
+                .eq('id', technology_id) \
+                .maybe_single() \
+                .execute()
+            
+            return response.data
+        except Exception as e:
+            logger.error(f"Error fetching technology: {e}")
+            raise
+
+    async def get_direction_technologies(self, direction_id: str) -> List[Dict]:
+        """Получить технологии для направления"""
+        try:
+            response = self.client.table('direction_technologies') \
+                .select('*, technologies(*)') \
+                .eq('direction_id', direction_id) \
+                .order('order_index') \
+                .execute()
+            
+            return response.data if response.data else []
+        except Exception as e:
+            logger.error(f"Error fetching direction technologies: {e}")
+            raise
+
+    async def get_technology_competencies(self, technology_id: str) -> List[Dict]:
+        """Получить компетенции для технологии"""
+        try:
+            response = self.client.table('technology_competencies') \
+                .select('*, competencies(*)') \
+                .eq('technology_id', technology_id) \
+                .order('order_index') \
+                .execute()
+            
+            return response.data if response.data else []
+        except Exception as e:
+            logger.error(f"Error fetching technology competencies: {e}")
+            raise
+
+    async def create_direction_technology(
+        self,
+        direction_id: str,
+        technology_id: str,
+        order_index: Optional[int] = None
+    ) -> Dict:
+        """Создать связь между направлением и технологией"""
+        try:
+            data = {
+                'direction_id': direction_id,
+                'technology_id': technology_id
+            }
+            
+            if order_index is not None:
+                data['order_index'] = order_index
+            
+            response = self.client.table('direction_technologies').insert(data).execute()
+            
+            if not response.data or len(response.data) == 0:
+                raise ValueError("Failed to create direction_technology - no data returned")
+            
+            return response.data[0]
+        except Exception as e:
+            logger.error(f"Error creating direction_technology: {e}")
+            raise
+
+    async def create_technology_competency(
+        self,
+        technology_id: str,
+        competency_id: str,
+        order_index: Optional[int] = None
+    ) -> Dict:
+        """Создать связь между технологией и компетенцией"""
+        try:
+            data = {
+                'technology_id': technology_id,
+                'competency_id': competency_id
+            }
+            
+            if order_index is not None:
+                data['order_index'] = order_index
+            
+            response = self.client.table('technology_competencies').insert(data).execute()
+            
+            if not response.data or len(response.data) == 0:
+                raise ValueError("Failed to create technology_competency - no data returned")
+            
+            return response.data[0]
+        except Exception as e:
+            logger.error(f"Error creating technology_competency: {e}")
+            raise
+
     async def get_assessment(self, assessment_id: str) -> Optional[Dict]:
         """Получить информацию о тестировании"""
         try:
             response = self.client.table('assessments') \
-                .select('*, roles(*), competency_assessments(*, competencies(*))') \
+                .select('*, roles(*), directions(*), technologies(*), competency_assessments(*, competencies(*))') \
                 .eq('id', assessment_id) \
                 .single() \
                 .execute()
@@ -273,6 +523,105 @@ class SupabaseService:
             logger.error(f"Error fetching competency assessment: {e}")
             raise
 
+    # === QUESTIONS (предварительно сгенерированные вопросы) ===
+
+    async def find_question(
+        self,
+        competency_id: str,
+        difficulty: int,
+        question_number: Optional[int] = None
+    ) -> Optional[Dict]:
+        """Найти вопрос в БД по компетенции и сложности"""
+        try:
+            query = self.client.table('questions') \
+                .select('*') \
+                .eq('competency_id', competency_id) \
+                .eq('difficulty', difficulty)
+            
+            if question_number is not None:
+                query = query.eq('question_number', question_number)
+            
+            response = query \
+                .order('used_count') \
+                .order('created_at') \
+                .limit(1) \
+                .execute()
+            
+            if not response.data or len(response.data) == 0:
+                return None
+            
+            return response.data[0]
+        except Exception as e:
+            logger.error(f"Error finding question: {e}")
+            raise
+
+    async def create_question(
+        self,
+        competency_id: str,
+        question_text: str,
+        difficulty: int,
+        question_number: Optional[int] = None,
+        expected_key_points: Optional[List[str]] = None,
+        estimated_answer_time: Optional[str] = None
+    ) -> Dict:
+        """Создать новый вопрос в БД"""
+        try:
+            question_data = {
+                'competency_id': competency_id,
+                'question_text': question_text,
+                'difficulty': difficulty,
+                'used_count': 0
+            }
+            
+            if question_number is not None:
+                question_data['question_number'] = question_number
+            if expected_key_points is not None:
+                question_data['expected_key_points'] = expected_key_points
+            if estimated_answer_time is not None:
+                question_data['estimated_answer_time'] = estimated_answer_time
+            
+            response = self.client.table('questions').insert(question_data).execute()
+            
+            if not response.data or len(response.data) == 0:
+                raise ValueError("Failed to create question - no data returned")
+            
+            return response.data[0]
+        except Exception as e:
+            logger.error(f"Error creating question: {e}")
+            raise
+
+    async def increment_question_usage(self, question_id: str) -> Dict:
+        """Увеличить счетчик использования вопроса"""
+        try:
+            # Получаем текущее значение used_count
+            response = self.client.table('questions') \
+                .select('used_count') \
+                .eq('id', question_id) \
+                .single() \
+                .execute()
+            
+            if not response.data:
+                raise ValueError(f"Question with id {question_id} not found")
+            
+            current_count = response.data.get('used_count', 0)
+            
+            # Увеличиваем счетчик
+            update_response = self.client.table('questions') \
+                .update({
+                    'used_count': current_count + 1,
+                    'updated_at': datetime.utcnow().isoformat()
+                }) \
+                .eq('id', question_id) \
+                .execute()
+            
+            if not update_response.data or len(update_response.data) == 0:
+                raise ValueError(f"Failed to update question usage - no data returned")
+            
+            return update_response.data[0]
+        except Exception as e:
+            logger.error(f"Error incrementing question usage: {e}")
+            raise
+
     # === QUESTION HISTORY ===
 
     async def create_question_history(
@@ -280,16 +629,22 @@ class SupabaseService:
         competency_assessment_id: str,
         question_text: str,
         difficulty_level: Optional[int] = None,
-        question_type: Optional[str] = None
+        question_type: Optional[str] = None,
+        question_id: Optional[str] = None
     ) -> Dict:
         """Создать запись вопроса в истории"""
         try:
-            response = self.client.table('question_history').insert({
+            history_data = {
                 'competency_assessment_id': competency_assessment_id,
                 'question_text': question_text,
                 'difficulty_level': difficulty_level,
                 'question_type': question_type
-            }).execute()
+            }
+            
+            if question_id is not None:
+                history_data['question_id'] = question_id
+            
+            response = self.client.table('question_history').insert(history_data).execute()
             
             if not response.data or len(response.data) == 0:
                 raise ValueError("Failed to create question history - no data returned")

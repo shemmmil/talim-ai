@@ -5,7 +5,7 @@ import logging
 import json
 from app.config import settings
 from app.database import init_db
-from app.api import roles, assessments, questions, roadmaps
+from app.api import roles, assessments, questions, roadmaps, admin
 
 # Настройка логирования
 logging.basicConfig(
@@ -60,6 +60,7 @@ app.include_router(roles.router)
 app.include_router(assessments.router)
 app.include_router(questions.router)
 app.include_router(roadmaps.router)
+app.include_router(admin.router)
 
 
 @app.on_event("startup")

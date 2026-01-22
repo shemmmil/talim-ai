@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List
 from uuid import UUID
+import logging
 from app.api.deps import get_supabase_service, get_openai_service, get_current_user_id
 from app.services.supabase_service import SupabaseService
 from app.services.openai_service import OpenAIService
@@ -12,7 +13,144 @@ from app.schemas.assessment import (
     CompetencyInfo,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/assessments", tags=["assessments"])
+
+
+@router.get(
+    "/directions",
+    summary="Получить список направлений",
+    description="Возвращает список всех доступных направлений разработки"
+)
+async def get_directions(
+    supabase_service: SupabaseService = Depends(get_supabase_service)
+):
+    """Получить список всех направлений"""
+    try:
+        directions = await supabase_service.get_all_directions()
+        return {"directions": directions}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching directions: {str(e)}")
+
+
+@router.get(
+    "/directions/{direction_id}/technologies",
+    summary="Получить технологии направления",
+    description="Возвращает список технологий для указанного направления"
+)
+async def get_direction_technologies(
+    direction_id: UUID = ..., description="ID направления",
+    supabase_service: SupabaseService = Depends(get_supabase_service)
+):
+    """Получить технологии для направления"""
+    try:
+        direction = await supabase_service.get_direction(str(direction_id))
+        if not direction:
+            raise HTTPException(status_code=404, detail="Direction not found")
+        
+        technologies = await supabase_service.get_direction_technologies(str(direction_id))
+        
+        # Форматируем ответ
+        result = []
+        for dt in technologies:
+            technology = dt.get('technologies', {})
+            if technology:
+                result.append({
+                    "id": technology['id'],
+                    "name": technology.get('name'),
+                    "description": technology.get('description'),
+                    "order_index": dt.get('order_index')
+                })
+        
+        return {
+            "direction": direction,
+            "technologies": result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching direction technologies: {str(e)}")
+
+
+@router.get(
+    "/directions/{direction_id}/competencies",
+    summary="Получить компетенции направления",
+    description="Возвращает список общих компетенций для указанного направления"
+)
+async def get_direction_competencies(
+    direction_id: UUID = ..., description="ID направления",
+    supabase_service: SupabaseService = Depends(get_supabase_service)
+):
+    """Получить компетенции для направления"""
+    try:
+        direction = await supabase_service.get_direction(str(direction_id))
+        if not direction:
+            raise HTTPException(status_code=404, detail="Direction not found")
+        
+        competencies = await supabase_service.get_direction_competencies(str(direction_id))
+        
+        # Форматируем ответ
+        result = []
+        for dc in competencies:
+            competency = dc.get('competencies', {})
+            if competency:
+                result.append({
+                    "id": competency['id'],
+                    "name": competency.get('name'),
+                    "description": competency.get('description'),
+                    "category": competency.get('category'),
+                    "order_index": dc.get('order_index')
+                })
+        
+        return {
+            "direction": direction,
+            "competencies": result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching direction competencies: {str(e)}")
+
+
+@router.get(
+    "/technologies/{technology_id}/competencies",
+    summary="Получить компетенции технологии",
+    description="Возвращает список компетенций для указанной технологии"
+)
+async def get_technology_competencies(
+    technology_id: UUID = ..., description="ID технологии",
+    supabase_service: SupabaseService = Depends(get_supabase_service)
+):
+    """Получить компетенции для технологии"""
+    try:
+        technology = await supabase_service.get_technology(str(technology_id))
+        if not technology:
+            raise HTTPException(status_code=404, detail="Technology not found")
+        
+        competencies = await supabase_service.get_technology_competencies(str(technology_id))
+        
+        # Форматируем ответ
+        result = []
+        for tc in competencies:
+            competency = tc.get('competencies', {})
+            if competency:
+                result.append({
+                    "id": competency['id'],
+                    "name": competency.get('name'),
+                    "description": competency.get('description'),
+                    "category": competency.get('category'),
+                    "order_index": tc.get('order_index')
+                })
+        
+        return {
+            "technology": technology,
+            "competencies": result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching technology competencies: {str(e)}")
 
 
 def get_assessment_service(
@@ -35,7 +173,7 @@ async def create_assessment(
     user_id: str = Depends(get_current_user_id)
 ):
     """
-    Начать новое тестирование компетенций по направлению.
+    Начать новое тестирование компетенций по направлению и технологии.
     
     Создает новую запись assessment со статусом 'in_progress' и возвращает:
     - ID созданного тестирования
@@ -46,12 +184,18 @@ async def create_assessment(
     По результатам тестирования будет автоматически сформирован персональный roadmap.
     
     Args:
-        assessment_data: Объект с полем direction (текст направления, например "backend(golang, sql)")
+        assessment_data: Объект с полями:
+            - direction: название направления (например, "backend", "frontend")
+            - technology: опциональное название технологии (например, "go", "php", "python")
+    
+    Если указана technology, используются компетенции технологии.
+    Если technology не указана, используются общие компетенции направления.
     """
     try:
         result = await assessment_service.start_assessment_by_direction(
             user_id,
-            assessment_data.direction
+            assessment_data.direction,
+            assessment_data.technology
         )
 
         competencies = [
@@ -71,7 +215,13 @@ async def create_assessment(
             competencies=competencies,
             status=result['status']
         )
+    except ValueError as e:
+        # Ошибки валидации (нет компетенций и т.д.)
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error creating assessment: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error creating assessment: {str(e)}")
 
 

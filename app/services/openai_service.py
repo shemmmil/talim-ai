@@ -123,7 +123,7 @@ class OpenAIService:
         user_prompt = f"""Роль: {role_name}
 Компетенция: {competency_name}
 Описание: {competency_description}
-Текущий вопрос: {question_number} из 7
+Текущий вопрос: {question_number} из 5
 Уровень сложности: {difficulty}/5
 
 Контекст предыдущих ответов:

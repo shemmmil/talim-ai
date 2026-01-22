@@ -18,9 +18,16 @@ class RoadmapService:
         if not assessment:
             raise ValueError(f"Assessment {assessment_id} not found")
 
-        # Получаем название направления (если есть роль) или используем общее название
+        # Получаем название направления (из directions или roles)
+        direction = assessment.get('directions', {})
         role = assessment.get('roles', {})
-        role_name = role.get('name') if role else 'Техническое направление'
+        
+        if direction:
+            role_name = direction.get('display_name') or direction.get('name', 'Техническое направление')
+        elif role:
+            role_name = role.get('name', 'Техническое направление')
+        else:
+            role_name = 'Техническое направление'
 
         # Формируем результаты для GPT
         competency_assessments = assessment.get('competency_assessments', [])

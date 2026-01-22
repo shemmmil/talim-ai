@@ -33,36 +33,120 @@ class AssessmentService:
             "status": assessment['status']
         }
 
-    async def start_assessment_by_direction(self, user_id: str, direction: str) -> Dict:
-        """Начать новое тестирование по направлению (тексту)"""
+    async def start_assessment_by_direction(
+        self, 
+        user_id: str, 
+        direction: str, 
+        technology: Optional[str] = None
+    ) -> Dict:
+        """Начать новое тестирование по направлению и технологии"""
         # Убеждаемся, что пользователь существует в БД (создаем если нет)
         await self.supabase.get_or_create_user(user_id)
         
-        # Определяем компетенции через GPT по тексту направления
-        competencies_data = await self.openai.determine_competencies_by_direction(direction)
+        # Находим направление в БД
+        direction_obj = await self.supabase.find_or_create_direction(
+            name=direction.lower(),
+            display_name=direction
+        )
+        direction_id = direction_obj['id']
         
-        # Создаем assessment БЕЗ role_id (NULL)
-        assessment = await self.supabase.create_assessment_without_role(user_id)
-
-        # Создаем competency_assessments для каждой компетенции
+        technology_id = None
         competencies = []
-        for comp_data in competencies_data.get('competencies', []):
-            # Ищем компетенцию в БД по имени или создаем виртуальную
-            competency = await self.supabase.find_or_create_competency_by_name(
-                comp_data['name'],
-                comp_data.get('description', ''),
-                comp_data.get('category')
+        
+        if technology:
+            # Если указана технология, используем компетенции технологии
+            technology_obj = await self.supabase.find_or_create_technology(
+                name=technology.lower()
+            )
+            technology_id = technology_obj['id']
+            
+            # Получаем компетенции для технологии
+            technology_competencies = await self.supabase.get_technology_competencies(
+                str(technology_id)
             )
             
-            await self.supabase.create_competency_assessment(
-                assessment['id'],
-                competency['id']
+            logger.info(f"Found {len(technology_competencies)} technology competencies for {technology}")
+            
+            if not technology_competencies:
+                raise ValueError(
+                    f"No competencies found for technology '{technology}' in direction '{direction}'. "
+                    f"Please add competencies to the technology first."
+                )
+            
+            # Извлекаем компетенции из структуры ответа Supabase
+            competencies = []
+            for tc in technology_competencies:
+                comp = tc.get('competencies')
+                # Supabase может вернуть компетенцию как объект или как массив
+                if isinstance(comp, dict) and comp.get('id'):
+                    competencies.append(comp)
+                elif isinstance(comp, list) and len(comp) > 0:
+                    competencies.extend([c for c in comp if c.get('id')])
+        else:
+            # Если технология не указана, используем общие компетенции направления
+            direction_competencies = await self.supabase.get_direction_competencies(
+                str(direction_id)
             )
-            competencies.append(competency)
+            
+            logger.info(f"Found {len(direction_competencies)} direction competencies for {direction}")
+            
+            if not direction_competencies:
+                raise ValueError(
+                    f"No competencies found for direction '{direction}'. "
+                    f"Please add competencies to the direction first, or specify a technology."
+                )
+            
+            # Извлекаем компетенции из структуры ответа Supabase
+            competencies = []
+            for dc in direction_competencies:
+                comp = dc.get('competencies')
+                # Supabase может вернуть компетенцию как объект или как массив
+                if isinstance(comp, dict) and comp.get('id'):
+                    competencies.append(comp)
+                elif isinstance(comp, list) and len(comp) > 0:
+                    competencies.extend([c for c in comp if c.get('id')])
+        
+        # Создаем assessment с direction_id и technology_id
+        assessment = await self.supabase.create_assessment_without_role(
+            user_id,
+            direction_id=str(direction_id),
+            technology_id=str(technology_id) if technology_id else None
+        )
+
+        # Проверяем, что есть компетенции
+        if not competencies:
+            raise ValueError(
+                f"No competencies found. "
+                f"Direction: '{direction}', Technology: '{technology or 'not specified'}'"
+            )
+        
+        # Фильтруем валидные компетенции
+        valid_competencies = [
+            comp for comp in competencies 
+            if comp and comp.get('id')
+        ]
+        
+        if not valid_competencies:
+            raise ValueError(
+                f"No valid competencies found. "
+                f"Direction: '{direction}', Technology: '{technology or 'not specified'}'"
+            )
+        
+        # Создаем competency_assessments для каждой компетенции
+        for competency in valid_competencies:
+            try:
+                await self.supabase.create_competency_assessment(
+                    assessment['id'],
+                    competency['id']
+                )
+            except Exception as e:
+                logger.error(f"Error creating competency_assessment for competency {competency.get('id')}: {e}")
+                # Продолжаем создание остальных компетенций
+                continue
 
         return {
             "assessment_id": assessment['id'],
-            "competencies": competencies,
+            "competencies": valid_competencies,
             "status": assessment['status']
         }
 
