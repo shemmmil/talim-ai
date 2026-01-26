@@ -87,21 +87,68 @@ async def generate_question(
         if not competency:
             raise HTTPException(status_code=404, detail="Competency not found")
 
-        # Ищем вопрос в БД
+        # Получаем competency_assessment для получения уже использованных вопросов
+        ca = await supabase_service.get_competency_assessment_by_ids(
+            str(assessment_id),
+            str(competency_id)
+        )
+        
+        # Получаем список уже использованных вопросов для этого competency_assessment
+        exclude_question_ids = []
+        if ca and ca.get('id'):
+            question_history = await supabase_service.get_question_history(str(ca['id']))
+            # Собираем все question_id из истории, которые не None
+            exclude_question_ids = [
+                str(qh['question_id']) 
+                for qh in question_history 
+                if qh.get('question_id') is not None
+            ]
+            logger.info(
+                f"Found {len(exclude_question_ids)} already used questions for "
+                f"competency_assessment_id={ca['id']}"
+            )
+
+        # Ищем вопрос в БД, исключая уже использованные
+        logger.info(
+            f"Searching question: competency_id={competency_id}, "
+            f"difficulty={difficulty}, question_number={question_number}, "
+            f"excluding {len(exclude_question_ids)} used questions"
+        )
+        
         stored_question = await supabase_service.find_question(
             competency_id=str(competency_id),
             difficulty=difficulty,
-            question_number=question_number
+            question_number=question_number,
+            exclude_question_ids=exclude_question_ids if exclude_question_ids else None
         )
 
         if not stored_question:
             # Вопрос не найден в БД
             competency_name = competency.get('name', 'Unknown') if competency else 'Unknown'
-            raise HTTPException(
-                status_code=404,
-                detail=f"Question not found for competency '{competency_name}' with difficulty {difficulty} and number {question_number}. "
-                       f"Please add questions to the database first."
+            
+            # Пытаемся найти вопрос без question_number (любой вопрос для этой компетенции и сложности)
+            logger.info(f"Question not found with question_number, trying without it...")
+            stored_question = await supabase_service.find_question(
+                competency_id=str(competency_id),
+                difficulty=difficulty,
+                question_number=None,
+                exclude_question_ids=exclude_question_ids if exclude_question_ids else None
             )
+            
+            if not stored_question:
+                # Больше нет доступных вопросов для этой компетенции
+                logger.info(
+                    f"No more questions available for competency '{competency_name}' (id: {competency_id}) "
+                    f"with difficulty {difficulty}. All questions have been used."
+                )
+                return QuestionGenerateResponse(
+                    questionId=None,
+                    questionText=None,
+                    difficulty=None,
+                    estimatedAnswerTime=None,
+                    expectedKeyPoints=None,
+                    noMoreQuestions=True
+                )
 
         # Используем сохраненный вопрос
         logger.info(f"Using stored question from DB: {stored_question['id']}")
@@ -110,7 +157,16 @@ async def generate_question(
         await supabase_service.increment_question_usage(str(stored_question['id']))
         
         question_text = stored_question['question_text']
-        expected_key_points = stored_question.get('expected_key_points', [])
+        # Обрабатываем expected_key_points - может быть списком или None
+        expected_key_points_raw = stored_question.get('expected_key_points')
+        if expected_key_points_raw is None:
+            expected_key_points = []
+        elif isinstance(expected_key_points_raw, list):
+            expected_key_points = expected_key_points_raw
+        else:
+            # Если это строка или другой тип, пытаемся преобразовать
+            expected_key_points = []
+        
         estimated_answer_time = stored_question.get('estimated_answer_time', '1-2 минуты')
         question_id = stored_question['id']
 
@@ -119,7 +175,8 @@ async def generate_question(
             questionText=question_text,
             difficulty=difficulty,
             estimatedAnswerTime=estimated_answer_time,
-            expectedKeyPoints=expected_key_points
+            expectedKeyPoints=expected_key_points,
+            noMoreQuestions=False
         )
 
     except HTTPException:

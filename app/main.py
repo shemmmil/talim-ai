@@ -5,7 +5,7 @@ import logging
 import json
 from app.config import settings
 from app.database import init_db
-from app.api import roles, assessments, questions, roadmaps, admin
+from app.api import roles, assessments, questions, admin
 
 # Настройка логирования
 logging.basicConfig(
@@ -26,7 +26,6 @@ app = FastAPI(
     * **Тестирование компетенций**: Адаптивное голосовое тестирование с использованием GPT-4
     * **Транскрипция аудио**: Автоматическая транскрипция ответов через Whisper API
     * **Оценка ответов**: AI-оценка с выявлением пробелов в знаниях
-    * **Персональные roadmaps**: Автоматическая генерация планов развития
     
     ## Документация
     
@@ -59,7 +58,6 @@ app.add_middleware(
 app.include_router(roles.router)
 app.include_router(assessments.router)
 app.include_router(questions.router)
-app.include_router(roadmaps.router)
 app.include_router(admin.router)
 
 

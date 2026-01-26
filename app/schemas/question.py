@@ -5,11 +5,12 @@ from uuid import UUID
 
 class QuestionGenerateResponse(BaseModel):
     """Ответ на генерацию вопроса"""
-    questionId: UUID
-    questionText: str
-    difficulty: int
-    estimatedAnswerTime: str
-    expectedKeyPoints: List[str]
+    questionId: Optional[UUID] = None
+    questionText: Optional[str] = None
+    difficulty: Optional[int] = None
+    estimatedAnswerTime: Optional[str] = None
+    expectedKeyPoints: Optional[List[str]] = None
+    noMoreQuestions: bool = False  # True если больше нет доступных вопросов для этой компетенции
 
 
 class AnswerEvaluation(BaseModel):

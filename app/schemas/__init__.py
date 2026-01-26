@@ -5,11 +5,6 @@ from .assessment import (
     AssessmentStartResponse,
     CompetencyAssessmentResponse,
 )
-from .roadmap import (
-    RoadmapResponse,
-    RoadmapSectionResponse,
-    RoadmapDetailResponse,
-)
 from .question import (
     QuestionGenerateResponse,
     AnswerResponse,
@@ -22,9 +17,6 @@ __all__ = [
     "AssessmentResponse",
     "AssessmentStartResponse",
     "CompetencyAssessmentResponse",
-    "RoadmapResponse",
-    "RoadmapSectionResponse",
-    "RoadmapDetailResponse",
     "QuestionGenerateResponse",
     "AnswerResponse",
     "AnswerEvaluation",

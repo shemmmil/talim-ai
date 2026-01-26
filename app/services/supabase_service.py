@@ -106,6 +106,42 @@ class SupabaseService:
             logger.error(f"Error creating assessment: {e}")
             raise
 
+    async def get_last_attempt_number(
+        self,
+        user_id: str,
+        direction_id: Optional[str] = None,
+        technology_id: Optional[str] = None
+    ) -> int:
+        """Получить номер последней попытки для пользователя по направлению и технологии"""
+        try:
+            query = self.client.table('assessments') \
+                .select('attempt_number') \
+                .eq('user_id', user_id)
+            
+            if direction_id:
+                query = query.eq('direction_id', direction_id)
+            else:
+                query = query.is_('direction_id', 'null')
+            
+            if technology_id:
+                query = query.eq('technology_id', technology_id)
+            else:
+                query = query.is_('technology_id', 'null')
+            
+            response = query \
+                .order('attempt_number', desc=True) \
+                .limit(1) \
+                .execute()
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0].get('attempt_number', 0) + 1
+            
+            return 1
+        except Exception as e:
+            logger.error(f"Error getting last attempt number: {e}")
+            # В случае ошибки возвращаем 1 (первая попытка)
+            return 1
+
     async def create_assessment_without_role(
         self, 
         user_id: str, 
@@ -114,10 +150,18 @@ class SupabaseService:
     ) -> Dict:
         """Создать новое тестирование без привязки к роли"""
         try:
+            # Получаем номер попытки
+            attempt_number = await self.get_last_attempt_number(
+                user_id,
+                direction_id,
+                technology_id
+            )
+            
             assessment_data = {
                 'user_id': user_id,
                 'role_id': None,
-                'status': 'in_progress'
+                'status': 'in_progress',
+                'attempt_number': attempt_number
             }
             
             if direction_id:
@@ -402,20 +446,134 @@ class SupabaseService:
             logger.error(f"Error creating technology_competency: {e}")
             raise
 
+    async def get_assessments_by_user(
+        self,
+        user_id: str,
+        direction_id: Optional[str] = None,
+        technology_id: Optional[str] = None
+    ) -> List[Dict]:
+        """Получить список всех тестирований пользователя"""
+        try:
+            # Получаем assessments без join (чтобы избежать ошибок с NULL foreign keys)
+            query = self.client.table('assessments') \
+                .select('*') \
+                .eq('user_id', user_id)
+            
+            if direction_id:
+                query = query.eq('direction_id', direction_id)
+            
+            if technology_id:
+                query = query.eq('technology_id', technology_id)
+            
+            response = query \
+                .order('attempt_number', desc=True) \
+                .order('started_at', desc=True) \
+                .execute()
+            
+            assessments = response.data if response.data else []
+            
+            # Для каждого assessment получаем связанные данные, если они есть
+            for assessment in assessments:
+                # Получаем role, если role_id не NULL
+                if assessment.get('role_id'):
+                    try:
+                        role_response = self.client.table('roles') \
+                            .select('*') \
+                            .eq('id', assessment['role_id']) \
+                            .maybe_single() \
+                            .execute()
+                        if role_response.data:
+                            assessment['roles'] = role_response.data
+                    except Exception as e:
+                        logger.warning(f"Could not fetch role for assessment {assessment.get('id')}: {e}")
+                
+                # Получаем direction, если direction_id не NULL
+                if assessment.get('direction_id'):
+                    try:
+                        direction_response = self.client.table('directions') \
+                            .select('*') \
+                            .eq('id', assessment['direction_id']) \
+                            .maybe_single() \
+                            .execute()
+                        if direction_response.data:
+                            assessment['directions'] = direction_response.data
+                    except Exception as e:
+                        logger.warning(f"Could not fetch direction for assessment {assessment.get('id')}: {e}")
+                
+                # Получаем technology, если technology_id не NULL
+                if assessment.get('technology_id'):
+                    try:
+                        technology_response = self.client.table('technologies') \
+                            .select('*') \
+                            .eq('id', assessment['technology_id']) \
+                            .maybe_single() \
+                            .execute()
+                        if technology_response.data:
+                            assessment['technologies'] = technology_response.data
+                    except Exception as e:
+                        logger.warning(f"Could not fetch technology for assessment {assessment.get('id')}: {e}")
+            
+            return assessments
+        except Exception as e:
+            logger.error(f"Error fetching user assessments: {e}")
+            raise
+
     async def get_assessment(self, assessment_id: str) -> Optional[Dict]:
         """Получить информацию о тестировании"""
         try:
+            # Получаем assessment с competency_assessments (это всегда работает)
             response = self.client.table('assessments') \
-                .select('*, roles(*), directions(*), technologies(*), competency_assessments(*, competencies(*))') \
+                .select('*, competency_assessments(*, competencies(*))') \
                 .eq('id', assessment_id) \
-                .single() \
+                .maybe_single() \
                 .execute()
             
-            # single() может вернуть None если запись не найдена
+            # maybe_single() возвращает None если запись не найдена
             if response.data is None:
                 return None
             
-            return response.data
+            assessment = response.data
+            
+            # Получаем role, если role_id не NULL
+            if assessment.get('role_id'):
+                try:
+                    role_response = self.client.table('roles') \
+                        .select('*') \
+                        .eq('id', assessment['role_id']) \
+                        .maybe_single() \
+                        .execute()
+                    if role_response.data:
+                        assessment['roles'] = role_response.data
+                except Exception as e:
+                    logger.warning(f"Could not fetch role for assessment {assessment_id}: {e}")
+            
+            # Получаем direction, если direction_id не NULL
+            if assessment.get('direction_id'):
+                try:
+                    direction_response = self.client.table('directions') \
+                        .select('*') \
+                        .eq('id', assessment['direction_id']) \
+                        .maybe_single() \
+                        .execute()
+                    if direction_response.data:
+                        assessment['directions'] = direction_response.data
+                except Exception as e:
+                    logger.warning(f"Could not fetch direction for assessment {assessment_id}: {e}")
+            
+            # Получаем technology, если technology_id не NULL
+            if assessment.get('technology_id'):
+                try:
+                    technology_response = self.client.table('technologies') \
+                        .select('*') \
+                        .eq('id', assessment['technology_id']) \
+                        .maybe_single() \
+                        .execute()
+                    if technology_response.data:
+                        assessment['technologies'] = technology_response.data
+                except Exception as e:
+                    logger.warning(f"Could not fetch technology for assessment {assessment_id}: {e}")
+            
+            return assessment
         except Exception as e:
             logger.error(f"Error fetching assessment: {e}")
             raise
@@ -529,9 +687,18 @@ class SupabaseService:
         self,
         competency_id: str,
         difficulty: int,
-        question_number: Optional[int] = None
+        question_number: Optional[int] = None,
+        exclude_question_ids: Optional[List[str]] = None
     ) -> Optional[Dict]:
-        """Найти вопрос в БД по компетенции и сложности"""
+        """
+        Найти вопрос в БД по компетенции и сложности.
+        
+        Args:
+            competency_id: ID компетенции
+            difficulty: Уровень сложности (1-5)
+            question_number: Опциональный номер вопроса (1-5)
+            exclude_question_ids: Список ID вопросов, которые нужно исключить (уже использованные)
+        """
         try:
             query = self.client.table('questions') \
                 .select('*') \
@@ -541,18 +708,72 @@ class SupabaseService:
             if question_number is not None:
                 query = query.eq('question_number', question_number)
             
-            response = query \
-                .order('used_count') \
-                .order('created_at') \
-                .limit(1) \
-                .execute()
+            # Исключаем уже использованные вопросы
+            filtered_questions = None
+            if exclude_question_ids and len(exclude_question_ids) > 0:
+                # Supabase не поддерживает .not().in() напрямую, поэтому используем фильтрацию
+                # Получаем все вопросы и фильтруем в Python
+                response = query \
+                    .order('used_count') \
+                    .execute()
+                
+                # Фильтруем исключенные вопросы
+                filtered_questions = [
+                    q for q in (response.data or [])
+                    if str(q.get('id')) not in exclude_question_ids
+                ]
+                
+                if filtered_questions:
+                    logger.debug(
+                        f"Searching question: competency_id={competency_id}, "
+                        f"difficulty={difficulty}, question_number={question_number}, "
+                        f"excluded={len(exclude_question_ids)} questions, "
+                        f"found={len(filtered_questions)} available"
+                    )
+                    return filtered_questions[0]
+            else:
+                # Если нет исключений, используем старую логику
+                response = query \
+                    .order('used_count') \
+                    .limit(1) \
+                    .execute()
+                
+                logger.debug(
+                    f"Searching question: competency_id={competency_id}, "
+                    f"difficulty={difficulty}, question_number={question_number}, "
+                    f"found={len(response.data) if response.data else 0}"
+                )
+                
+                if response.data and len(response.data) > 0:
+                    return response.data[0]
             
-            if not response.data or len(response.data) == 0:
+            # Если ничего не найдено, логируем для диагностики
+            found_questions = filtered_questions if filtered_questions is not None else (response.data if response.data else [])
+            if not found_questions:
+                try:
+                    check_query = self.client.table('questions') \
+                        .select('id, difficulty, question_number', count='exact') \
+                        .eq('competency_id', competency_id) \
+                        .limit(10) \
+                        .execute()
+                    
+                    available_questions = check_query.data if check_query.data else []
+                    excluded_count = len(exclude_question_ids) if exclude_question_ids else 0
+                    logger.warning(
+                        f"No question found for competency_id={competency_id}, "
+                        f"difficulty={difficulty}, question_number={question_number}. "
+                        f"Excluded {excluded_count} questions. "
+                        f"Available questions for this competency: {len(available_questions)}. "
+                        f"Sample: {[(q.get('difficulty'), q.get('question_number')) for q in available_questions[:5]]}"
+                    )
+                except Exception as check_error:
+                    logger.error(f"Error checking available questions: {check_error}")
+                
                 return None
             
-            return response.data[0]
+            return None
         except Exception as e:
-            logger.error(f"Error finding question: {e}")
+            logger.error(f"Error finding question: {e}", exc_info=True)
             raise
 
     async def create_question(
@@ -715,219 +936,3 @@ class SupabaseService:
             logger.error(f"Error fetching question history: {e}")
             raise
 
-    # === ROADMAPS ===
-
-    async def create_roadmap(
-        self,
-        assessment_id: str,
-        title: str,
-        description: Optional[str] = None,
-        estimated_duration_weeks: Optional[int] = None,
-        difficulty_level: Optional[int] = None,
-        priority_order: Optional[Dict] = None
-    ) -> Dict:
-        """Создать roadmap"""
-        try:
-            response = self.client.table('roadmaps').insert({
-                'assessment_id': assessment_id,
-                'title': title,
-                'description': description,
-                'estimated_duration_weeks': estimated_duration_weeks,
-                'difficulty_level': difficulty_level,
-                'priority_order': priority_order,
-                'status': 'active'
-            }).execute()
-            return response.data[0]
-        except Exception as e:
-            logger.error(f"Error creating roadmap: {e}")
-            raise
-
-    async def get_roadmap_by_assessment(self, assessment_id: str) -> Optional[Dict]:
-        """Получить roadmap по assessment id"""
-        try:
-            response = self.client.table('roadmaps') \
-                .select('*') \
-                .eq('assessment_id', assessment_id) \
-                .maybe_single() \
-                .execute()
-            return response.data
-        except Exception as e:
-            logger.error(f"Error fetching roadmap: {e}")
-            raise
-
-    async def get_roadmap_with_sections(self, roadmap_id: str) -> Optional[Dict]:
-        """Получить roadmap со всеми секциями и материалами"""
-        try:
-            # Получаем roadmap
-            roadmap_response = self.client.table('roadmaps') \
-                .select('*') \
-                .eq('id', roadmap_id) \
-                .single() \
-                .execute()
-
-            roadmap = roadmap_response.data
-
-            # Получаем секции
-            sections_response = self.client.table('roadmap_sections') \
-                .select('*, competencies(*)') \
-                .eq('roadmap_id', roadmap_id) \
-                .order('order_index') \
-                .execute()
-
-            sections = sections_response.data
-
-            # Для каждой секции получаем материалы, задачи и вопросы
-            for section in sections:
-                section_id = section['id']
-
-                # Learning materials
-                materials_response = self.client.table('learning_materials') \
-                    .select('*') \
-                    .eq('roadmap_section_id', section_id) \
-                    .order('order_index') \
-                    .execute()
-                section['learning_materials'] = materials_response.data
-
-                # Practice tasks
-                tasks_response = self.client.table('practice_tasks') \
-                    .select('*') \
-                    .eq('roadmap_section_id', section_id) \
-                    .order('order_index') \
-                    .execute()
-                section['practice_tasks'] = tasks_response.data
-
-                # Self-check questions
-                questions_response = self.client.table('self_check_questions') \
-                    .select('*') \
-                    .eq('roadmap_section_id', section_id) \
-                    .order('order_index') \
-                    .execute()
-                section['self_check_questions'] = questions_response.data
-
-            roadmap['sections'] = sections
-            return roadmap
-
-        except Exception as e:
-            logger.error(f"Error fetching roadmap with sections: {e}")
-            raise
-
-    async def create_roadmap_section(
-        self,
-        roadmap_id: str,
-        competency_id: Optional[str],
-        title: str,
-        description: Optional[str] = None,
-        order_index: Optional[int] = None,
-        estimated_duration_hours: Optional[int] = None
-    ) -> Dict:
-        """Создать секцию roadmap"""
-        try:
-            response = self.client.table('roadmap_sections').insert({
-                'roadmap_id': roadmap_id,
-                'competency_id': competency_id,
-                'title': title,
-                'description': description,
-                'order_index': order_index,
-                'estimated_duration_hours': estimated_duration_hours,
-                'status': 'not_started'
-            }).execute()
-            return response.data[0]
-        except Exception as e:
-            logger.error(f"Error creating roadmap section: {e}")
-            raise
-
-    async def create_learning_material(
-        self,
-        roadmap_section_id: str,
-        material_type: str,
-        title: str,
-        url: Optional[str] = None,
-        description: Optional[str] = None,
-        author: Optional[str] = None,
-        duration_minutes: Optional[int] = None,
-        difficulty: Optional[str] = None,
-        language: Optional[str] = None,
-        is_free: bool = True,
-        order_index: Optional[int] = None,
-        rating: Optional[float] = None
-    ) -> Dict:
-        """Создать материал для обучения"""
-        try:
-            response = self.client.table('learning_materials').insert({
-                'roadmap_section_id': roadmap_section_id,
-                'type': material_type,
-                'title': title,
-                'url': url,
-                'description': description,
-                'author': author,
-                'duration_minutes': duration_minutes,
-                'difficulty': difficulty,
-                'language': language,
-                'is_free': is_free,
-                'order_index': order_index,
-                'rating': rating
-            }).execute()
-            return response.data[0]
-        except Exception as e:
-            logger.error(f"Error creating learning material: {e}")
-            raise
-
-    async def create_practice_task(
-        self,
-        roadmap_section_id: str,
-        title: str,
-        task_type: str,
-        description: Optional[str] = None,
-        difficulty: Optional[int] = None,
-        estimated_time_minutes: Optional[int] = None,
-        requirements: Optional[Dict] = None,
-        hints: Optional[Dict] = None,
-        solution_example: Optional[str] = None,
-        order_index: Optional[int] = None
-    ) -> Dict:
-        """Создать практическую задачу"""
-        try:
-            response = self.client.table('practice_tasks').insert({
-                'roadmap_section_id': roadmap_section_id,
-                'title': title,
-                'task_type': task_type,
-                'description': description,
-                'difficulty': difficulty,
-                'estimated_time_minutes': estimated_time_minutes,
-                'requirements': requirements,
-                'hints': hints,
-                'solution_example': solution_example,
-                'order_index': order_index
-            }).execute()
-            return response.data[0]
-        except Exception as e:
-            logger.error(f"Error creating practice task: {e}")
-            raise
-
-    async def create_self_check_question(
-        self,
-        roadmap_section_id: str,
-        question_text: str,
-        question_type: Optional[str] = None,
-        options: Optional[Dict] = None,
-        correct_answer: Optional[str] = None,
-        explanation: Optional[str] = None,
-        difficulty: Optional[int] = None,
-        order_index: Optional[int] = None
-    ) -> Dict:
-        """Создать вопрос для самопроверки"""
-        try:
-            response = self.client.table('self_check_questions').insert({
-                'roadmap_section_id': roadmap_section_id,
-                'question_text': question_text,
-                'question_type': question_type,
-                'options': options,
-                'correct_answer': correct_answer,
-                'explanation': explanation,
-                'difficulty': difficulty,
-                'order_index': order_index
-            }).execute()
-            return response.data[0]
-        except Exception as e:
-            logger.error(f"Error creating self-check question: {e}")
-            raise

@@ -68,9 +68,15 @@ class AssessmentService:
             logger.info(f"Found {len(technology_competencies)} technology competencies for {technology}")
             
             if not technology_competencies:
+                # Проверяем, существует ли технология
+                technology_obj = await self.supabase.find_or_create_technology(
+                    name=technology.lower()
+                )
                 raise ValueError(
                     f"No competencies found for technology '{technology}' in direction '{direction}'. "
-                    f"Please add competencies to the technology first."
+                    f"Please add competencies to the technology first. "
+                    f"You can use the SQL script 'database/migrations/seed_angular_competencies.sql' "
+                    f"or add competencies via the admin API at /api/admin/technologies/{technology_obj['id']}/competencies/{{competency_id}}"
                 )
             
             # Извлекаем компетенции из структуры ответа Supabase
@@ -150,6 +156,20 @@ class AssessmentService:
             "status": assessment['status']
         }
 
+    async def get_user_assessments(
+        self,
+        user_id: str,
+        direction_id: Optional[str] = None,
+        technology_id: Optional[str] = None
+    ) -> List[Dict]:
+        """Получить список всех тестирований пользователя"""
+        assessments = await self.supabase.get_assessments_by_user(
+            user_id,
+            direction_id,
+            technology_id
+        )
+        return assessments
+
     async def get_assessment_with_progress(self, assessment_id: str) -> Optional[Dict]:
         """Получить assessment с прогрессом"""
         assessment = await self.supabase.get_assessment(assessment_id)
@@ -187,6 +207,37 @@ class AssessmentService:
 
     async def complete_assessment(self, assessment_id: str) -> Dict:
         """Завершить тестирование и вычислить общий балл"""
+        # Получаем assessment с прогрессом
+        assessment = await self.supabase.get_assessment(assessment_id)
+        if not assessment:
+            raise ValueError(f"Assessment {assessment_id} not found")
+        
+        # Проверяем, есть ли ответы
+        competency_assessments = assessment.get('competency_assessments', [])
+        total_answers = 0
+        answered_competencies = 0
+        
+        for ca in competency_assessments:
+            ca_id = ca.get('id')
+            if ca_id:
+                question_history = await self.supabase.get_question_history(str(ca_id))
+                answered_count = len([q for q in question_history if q.get('user_answer_transcript')])
+                total_answers += answered_count
+                if answered_count > 0:
+                    answered_competencies += 1
+        
+        logger.info(
+            f"Completing assessment {assessment_id}: "
+            f"{answered_competencies}/{len(competency_assessments)} competencies have answers, "
+            f"total {total_answers} answers"
+        )
+        
+        if total_answers == 0:
+            logger.warning(
+                f"Assessment {assessment_id} is being completed without any answers. "
+                f"This will result in overall_score = 0.0"
+            )
+        
         # Вычисляем общий балл
         overall_score = await self.calculate_overall_score(assessment_id)
 

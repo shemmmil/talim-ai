@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Talim AI - Backend для тестирования компетенций",
-    "description": "\n    API для системы AI-тестирования профессиональных компетенций через голосовое собеседование.\n    \n    ## Основные возможности\n    \n    * **Тестирование компетенций**: Адаптивное голосовое тестирование с использованием GPT-4\n    * **Транскрипция аудио**: Автоматическая транскрипция ответов через Whisper API\n    * **Оценка ответов**: AI-оценка с выявлением пробелов в знаниях\n    * **Персональные roadmaps**: Автоматическая генерация планов развития\n    \n    ## Документация\n    \n    * Swagger UI: `/docs`\n    * ReDoc: `/redoc`\n    * OpenAPI JSON: `/openapi.json`\n    \n    ## Аутентификация\n    \n    User ID передается с фронтенда в заголовке `Authorization`:\n    - Формат: `Authorization: Bearer {user_id}` или `Authorization: {user_id}`\n    - Заголовок обязателен для всех защищенных endpoints\n    ",
+    "description": "\n    API для системы AI-тестирования профессиональных компетенций через голосовое собеседование.\n    \n    ## Основные возможности\n    \n    * **Тестирование компетенций**: Адаптивное голосовое тестирование с использованием GPT-4\n    * **Транскрипция аудио**: Автоматическая транскрипция ответов через Whisper API\n    * **Оценка ответов**: AI-оценка с выявлением пробелов в знаниях\n    \n    ## Документация\n    \n    * Swagger UI: `/docs`\n    * ReDoc: `/redoc`\n    * OpenAPI JSON: `/openapi.json`\n    \n    ## Аутентификация\n    \n    User ID передается с фронтенда в заголовке `Authorization`:\n    - Формат: `Authorization: Bearer {user_id}` или `Authorization: {user_id}`\n    - Заголовок обязателен для всех защищенных endpoints\n    ",
     "version": "1.0.0"
   },
   "paths": {
@@ -125,13 +125,186 @@
         }
       }
     },
+    "/api/assessments/directions": {
+      "get": {
+        "tags": [
+          "assessments"
+        ],
+        "summary": "Получить список направлений",
+        "description": "Возвращает список всех доступных направлений разработки",
+        "operationId": "get_directions_api_assessments_directions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/assessments/directions/{direction_id}/technologies": {
+      "get": {
+        "tags": [
+          "assessments"
+        ],
+        "summary": "Получить технологии направления",
+        "description": "Возвращает список технологий для указанного направления",
+        "operationId": "get_direction_technologies_api_assessments_directions__direction_id__technologies_get",
+        "parameters": [
+          {
+            "name": "direction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Direction Id"
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "ID направления",
+              "title": "Description"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/assessments/directions/{direction_id}/competencies": {
+      "get": {
+        "tags": [
+          "assessments"
+        ],
+        "summary": "Получить компетенции направления",
+        "description": "Возвращает список общих компетенций для указанного направления",
+        "operationId": "get_direction_competencies_api_assessments_directions__direction_id__competencies_get",
+        "parameters": [
+          {
+            "name": "direction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Direction Id"
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "ID направления",
+              "title": "Description"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/assessments/technologies/{technology_id}/competencies": {
+      "get": {
+        "tags": [
+          "assessments"
+        ],
+        "summary": "Получить компетенции технологии",
+        "description": "Возвращает список компетенций для указанной технологии",
+        "operationId": "get_technology_competencies_api_assessments_technologies__technology_id__competencies_get",
+        "parameters": [
+          {
+            "name": "technology_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Technology Id"
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "ID технологии",
+              "title": "Description"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/assessments": {
       "post": {
         "tags": [
           "assessments"
         ],
         "summary": "Начать новое тестирование",
-        "description": "Создает новое тестирование для указанного направления и возвращает список компетенций для тестирования. По результатам тестирования будет сформирован персональный roadmap.",
+        "description": "Создает новое тестирование для указанного направления и возвращает список компетенций для тестирования.",
         "operationId": "create_assessment_api_assessments_post",
         "parameters": [
           {
@@ -170,6 +343,98 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AssessmentStartResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "assessments"
+        ],
+        "summary": "Получить список тестирований пользователя",
+        "description": "Возвращает список всех тестирований пользователя, отсортированных по номеру попытки и дате",
+        "operationId": "get_user_assessments_api_assessments_get",
+        "parameters": [
+          {
+            "name": "direction_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Фильтр по направлению",
+              "title": "Direction Id"
+            },
+            "description": "Фильтр по направлению"
+          },
+          {
+            "name": "technology_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Фильтр по технологии",
+              "title": "Technology Id"
+            },
+            "description": "Фильтр по технологии"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "JWT токен передается с фронтенда в заголовке Authorization. Формат: 'Bearer {jwt_token}'. User ID извлекается из поля 'sub' в JWT токене.",
+              "title": "Authorization"
+            },
+            "description": "JWT токен передается с фронтенда в заголовке Authorization. Формат: 'Bearer {jwt_token}'. User ID извлекается из поля 'sub' в JWT токене."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssessmentResponse"
+                  },
+                  "title": "Response Get User Assessments Api Assessments Get"
                 }
               }
             }
@@ -332,8 +597,8 @@
         "tags": [
           "questions"
         ],
-        "summary": "Сгенерировать вопрос",
-        "description": "Генерирует адаптивный вопрос для тестирования компетенции через GPT-4. Вопрос генерируется на основе предыдущих ответов и выявленных пробелов в знаниях.",
+        "summary": "Получить вопрос",
+        "description": "Получает вопрос для тестирования компетенции из базы данных. Вопрос должен быть предварительно добавлен в БД.",
         "operationId": "generate_question_api_questions_generate_post",
         "parameters": [
           {
@@ -451,34 +716,15 @@
         }
       }
     },
-    "/api/roadmaps/{assessment_id}": {
-      "get": {
+    "/api/admin/directions": {
+      "post": {
         "tags": [
-          "roadmaps"
+          "admin"
         ],
-        "summary": "Получить roadmap по assessment",
-        "description": "Возвращает персональный roadmap для завершенного тестирования. Если roadmap еще не создан, генерирует его автоматически через GPT-4",
-        "operationId": "get_roadmap_by_assessment_api_roadmaps__assessment_id__get",
+        "summary": "Создать направление",
+        "description": "Создает новое направление разработки",
+        "operationId": "create_direction_api_admin_directions_post",
         "parameters": [
-          {
-            "name": "assessment_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Assessment Id"
-            }
-          },
-          {
-            "name": "description",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "default": "ID завершенного тестирования",
-              "title": "Description"
-            }
-          },
           {
             "name": "Authorization",
             "in": "header",
@@ -498,14 +744,22 @@
             "description": "JWT токен передается с фронтенда в заголовке Authorization. Формат: 'Bearer {jwt_token}'. User ID извлекается из поля 'sub' в JWT токене."
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectionCreate"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoadmapDetailResponse"
-                }
+                "schema": {}
               }
             }
           },
@@ -522,32 +776,109 @@
         }
       }
     },
-    "/api/roadmaps/{roadmap_id}/sections": {
-      "get": {
+    "/api/admin/technologies": {
+      "post": {
         "tags": [
-          "roadmaps"
+          "admin"
         ],
-        "summary": "Получить детальные секции roadmap",
-        "description": "Возвращает полную информацию о roadmap со всеми секциями, материалами, задачами и вопросами",
-        "operationId": "get_roadmap_sections_api_roadmaps__roadmap_id__sections_get",
+        "summary": "Создать технологию",
+        "description": "Создает новую технологию",
+        "operationId": "create_technology_api_admin_technologies_post",
         "parameters": [
           {
-            "name": "roadmap_id",
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "JWT токен передается с фронтенда в заголовке Authorization. Формат: 'Bearer {jwt_token}'. User ID извлекается из поля 'sub' в JWT токене.",
+              "title": "Authorization"
+            },
+            "description": "JWT токен передается с фронтенда в заголовке Authorization. Формат: 'Bearer {jwt_token}'. User ID извлекается из поля 'sub' в JWT токене."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TechnologyCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/directions/{direction_id}/technologies/{technology_id}": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Связать технологию с направлением",
+        "description": "Добавляет технологию к направлению",
+        "operationId": "link_technology_to_direction_api_admin_directions__direction_id__technologies__technology_id__post",
+        "parameters": [
+          {
+            "name": "direction_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Roadmap Id"
+              "title": "Direction Id"
             }
           },
           {
-            "name": "description",
+            "name": "technology_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Technology Id"
+            }
+          },
+          {
+            "name": "order_index",
             "in": "query",
             "required": false,
             "schema": {
-              "default": "ID roadmap",
-              "title": "Description"
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Order Index"
             }
           },
           {
@@ -574,9 +905,249 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RoadmapDetailResponse"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/technologies/{technology_id}/competencies/{competency_id}": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Связать компетенцию с технологией",
+        "description": "Добавляет компетенцию к технологии",
+        "operationId": "link_competency_to_technology_api_admin_technologies__technology_id__competencies__competency_id__post",
+        "parameters": [
+          {
+            "name": "technology_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Technology Id"
+            }
+          },
+          {
+            "name": "competency_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Competency Id"
+            }
+          },
+          {
+            "name": "order_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Order Index"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "JWT токен передается с фронтенда в заголовке Authorization. Формат: 'Bearer {jwt_token}'. User ID извлекается из поля 'sub' в JWT токене.",
+              "title": "Authorization"
+            },
+            "description": "JWT токен передается с фронтенда в заголовке Authorization. Формат: 'Bearer {jwt_token}'. User ID извлекается из поля 'sub' в JWT токене."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/directions/{direction_id}/competencies/{competency_id}": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Связать компетенцию с направлением",
+        "description": "Добавляет общую компетенцию к направлению",
+        "operationId": "link_competency_to_direction_api_admin_directions__direction_id__competencies__competency_id__post",
+        "parameters": [
+          {
+            "name": "direction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Direction Id"
+            }
+          },
+          {
+            "name": "competency_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Competency Id"
+            }
+          },
+          {
+            "name": "order_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Order Index"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "JWT токен передается с фронтенда в заголовке Authorization. Формат: 'Bearer {jwt_token}'. User ID извлекается из поля 'sub' в JWT токене.",
+              "title": "Authorization"
+            },
+            "description": "JWT токен передается с фронтенда в заголовке Authorization. Формат: 'Bearer {jwt_token}'. User ID извлекается из поля 'sub' в JWT токене."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/directions/{direction_id}/technologies/batch": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Массовое добавление технологий к направлению",
+        "description": "Добавляет несколько технологий к направлению за раз",
+        "operationId": "batch_link_technologies_to_direction_api_admin_directions__direction_id__technologies_batch_post",
+        "parameters": [
+          {
+            "name": "direction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Direction Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "JWT токен передается с фронтенда в заголовке Authorization. Формат: 'Bearer {jwt_token}'. User ID извлекается из поля 'sub' в JWT токене.",
+              "title": "Authorization"
+            },
+            "description": "JWT токен передается с фронтенда в заголовке Authorization. Формат: 'Bearer {jwt_token}'. User ID извлекается из поля 'sub' в JWT токене."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchTechnologyLink"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -669,6 +1240,17 @@
               }
             ],
             "title": "Reasoning"
+          },
+          "correctAnswer": {
+            "type": "string",
+            "title": "Correctanswer"
+          },
+          "expectedKeyPoints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Expectedkeypoints"
           }
         },
         "type": "object",
@@ -678,7 +1260,9 @@
           "isCorrect",
           "feedback",
           "knowledgeGaps",
-          "nextDifficulty"
+          "nextDifficulty",
+          "correctAnswer",
+          "expectedKeyPoints"
         ],
         "title": "AnswerEvaluation",
         "description": "Оценка ответа"
@@ -706,6 +1290,17 @@
           "direction": {
             "type": "string",
             "title": "Direction"
+          },
+          "technology": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technology"
           }
         },
         "type": "object",
@@ -727,8 +1322,15 @@
             "title": "User Id"
           },
           "role_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Role Id"
           },
           "role_name": {
@@ -741,6 +1343,30 @@
               }
             ],
             "title": "Role Name"
+          },
+          "direction_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction Id"
+          },
+          "technology_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technology Id"
           },
           "status": {
             "type": "string",
@@ -756,6 +1382,11 @@
               }
             ],
             "title": "Overall Score"
+          },
+          "attempt_number": {
+            "type": "integer",
+            "title": "Attempt Number",
+            "default": 1
           },
           "started_at": {
             "type": "string",
@@ -787,7 +1418,6 @@
         "required": [
           "id",
           "user_id",
-          "role_id",
           "status",
           "started_at"
         ],
@@ -820,6 +1450,23 @@
         ],
         "title": "AssessmentStartResponse"
       },
+      "BatchTechnologyLink": {
+        "properties": {
+          "technology_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Technology Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "technology_ids"
+        ],
+        "title": "BatchTechnologyLink"
+      },
       "Body_generate_question_api_questions_generate_post": {
         "properties": {
           "assessment_id": {
@@ -836,10 +1483,10 @@
           },
           "question_number": {
             "type": "integer",
-            "maximum": 7.0,
+            "maximum": 5.0,
             "minimum": 1.0,
             "title": "Question Number",
-            "description": "Номер вопроса (1-7)"
+            "description": "Номер вопроса (1-5)"
           },
           "difficulty": {
             "anyOf": [
@@ -890,6 +1537,19 @@
             "title": "Difficulty",
             "description": "Сложность вопроса (1-5)",
             "default": 3
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id",
+            "description": "ID вопроса из БД (если был использован сохраненный вопрос)"
           },
           "audio": {
             "type": "string",
@@ -1047,6 +1707,52 @@
         ],
         "title": "CompetencyInfo"
       },
+      "DirectionCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "technologies": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technologies"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "DirectionCreate"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1060,363 +1766,9 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "LearningMaterialResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "type": {
-            "type": "string",
-            "title": "Type"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Url"
-          },
-          "author": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Author"
-          },
-          "duration_minutes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Duration Minutes"
-          },
-          "difficulty": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Difficulty"
-          },
-          "language": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Language"
-          },
-          "is_free": {
-            "type": "boolean",
-            "title": "Is Free",
-            "default": true
-          },
-          "order_index": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Order Index"
-          },
-          "rating": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rating"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "type"
-        ],
-        "title": "LearningMaterialResponse"
-      },
-      "PracticeTaskResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "task_type": {
-            "type": "string",
-            "title": "Task Type"
-          },
-          "difficulty": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Difficulty"
-          },
-          "estimated_time_minutes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Estimated Time Minutes"
-          },
-          "requirements": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Requirements"
-          },
-          "hints": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Hints"
-          },
-          "order_index": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Order Index"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "task_type"
-        ],
-        "title": "PracticeTaskResponse"
-      },
       "QuestionGenerateResponse": {
         "properties": {
           "questionId": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Questionid"
-          },
-          "questionText": {
-            "type": "string",
-            "title": "Questiontext"
-          },
-          "difficulty": {
-            "type": "integer",
-            "title": "Difficulty"
-          },
-          "estimatedAnswerTime": {
-            "type": "string",
-            "title": "Estimatedanswertime"
-          },
-          "expectedKeyPoints": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Expectedkeypoints"
-          }
-        },
-        "type": "object",
-        "required": [
-          "questionId",
-          "questionText",
-          "difficulty",
-          "estimatedAnswerTime",
-          "expectedKeyPoints"
-        ],
-        "title": "QuestionGenerateResponse",
-        "description": "Ответ на генерацию вопроса"
-      },
-      "RoadmapDetailResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "assessment_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Assessment Id"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "estimated_duration_weeks": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Estimated Duration Weeks"
-          },
-          "difficulty_level": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Difficulty Level"
-          },
-          "generated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Generated At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "sections": {
-            "items": {
-              "$ref": "#/components/schemas/RoadmapSectionResponse"
-            },
-            "type": "array",
-            "title": "Sections",
-            "default": []
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "assessment_id",
-          "generated_at",
-          "updated_at",
-          "status"
-        ],
-        "title": "RoadmapDetailResponse",
-        "description": "Полный ответ со всеми деталями roadmap"
-      },
-      "RoadmapSectionResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "competency_id": {
             "anyOf": [
               {
                 "type": "string",
@@ -1426,9 +1778,9 @@
                 "type": "null"
               }
             ],
-            "title": "Competency Id"
+            "title": "Questionid"
           },
-          "competency_name": {
+          "questionText": {
             "anyOf": [
               {
                 "type": "string"
@@ -1437,151 +1789,7 @@
                 "type": "null"
               }
             ],
-            "title": "Competency Name"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "order_index": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Order Index"
-          },
-          "estimated_duration_hours": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Estimated Duration Hours"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "completed_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Completed At"
-          },
-          "learning_materials": {
-            "items": {
-              "$ref": "#/components/schemas/LearningMaterialResponse"
-            },
-            "type": "array",
-            "title": "Learning Materials",
-            "default": []
-          },
-          "practice_tasks": {
-            "items": {
-              "$ref": "#/components/schemas/PracticeTaskResponse"
-            },
-            "type": "array",
-            "title": "Practice Tasks",
-            "default": []
-          },
-          "self_check_questions": {
-            "items": {
-              "$ref": "#/components/schemas/SelfCheckQuestionResponse"
-            },
-            "type": "array",
-            "title": "Self Check Questions",
-            "default": []
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "status"
-        ],
-        "title": "RoadmapSectionResponse"
-      },
-      "SelfCheckQuestionResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "question_text": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Question Text"
-          },
-          "question_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Question Type"
-          },
-          "options": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Options"
-          },
-          "explanation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Explanation"
+            "title": "Questiontext"
           },
           "difficulty": {
             "anyOf": [
@@ -1594,23 +1802,64 @@
             ],
             "title": "Difficulty"
           },
-          "order_index": {
+          "estimatedAnswerTime": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Order Index"
+            "title": "Estimatedanswertime"
+          },
+          "expectedKeyPoints": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedkeypoints"
+          },
+          "noMoreQuestions": {
+            "type": "boolean",
+            "title": "Nomorequestions",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "QuestionGenerateResponse",
+        "description": "Ответ на генерацию вопроса"
+      },
+      "TechnologyCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
           }
         },
         "type": "object",
         "required": [
-          "id"
+          "name"
         ],
-        "title": "SelfCheckQuestionResponse"
+        "title": "TechnologyCreate"
       },
       "ValidationError": {
         "properties": {

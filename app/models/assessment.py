@@ -7,9 +7,12 @@ from uuid import UUID
 class Assessment(BaseModel):
     id: UUID
     user_id: UUID
-    role_id: UUID
+    role_id: Optional[UUID] = None
+    direction_id: Optional[UUID] = None
+    technology_id: Optional[UUID] = None
     status: str  # 'in_progress', 'completed', 'abandoned'
     overall_score: Optional[float] = None
+    attempt_number: int = 1
     started_at: datetime
     completed_at: Optional[datetime] = None
 

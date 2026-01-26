@@ -37,10 +37,13 @@ class CompetencyAssessmentResponse(BaseModel):
 class AssessmentResponse(BaseModel):
     id: UUID
     user_id: UUID
-    role_id: UUID
+    role_id: Optional[UUID] = None
     role_name: Optional[str] = None
+    direction_id: Optional[UUID] = None
+    technology_id: Optional[UUID] = None
     status: str
     overall_score: Optional[float] = None
+    attempt_number: int = 1
     started_at: datetime
     completed_at: Optional[datetime] = None
     competency_assessments: List[CompetencyAssessmentResponse] = []

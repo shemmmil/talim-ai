@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS assessments (
   technology_id UUID REFERENCES technologies(id),
   status VARCHAR(50) CHECK (status IN ('in_progress', 'completed', 'abandoned')),
   overall_score FLOAT,
+  attempt_number INTEGER DEFAULT 1,
   started_at TIMESTAMP DEFAULT NOW(),
   completed_at TIMESTAMP
 );
@@ -145,90 +146,6 @@ CREATE TABLE IF NOT EXISTS question_history (
   answered_at TIMESTAMP
 );
 
--- Таблица: roadmaps
-CREATE TABLE IF NOT EXISTS roadmaps (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  assessment_id UUID REFERENCES assessments(id) ON DELETE CASCADE,
-  title VARCHAR(255),
-  description TEXT,
-  estimated_duration_weeks INTEGER,
-  difficulty_level INTEGER,
-  priority_order JSONB,
-  generated_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW(),
-  status VARCHAR(50) CHECK (status IN ('active', 'completed', 'abandoned'))
-);
-
--- Таблица: roadmap_sections
-CREATE TABLE IF NOT EXISTS roadmap_sections (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  roadmap_id UUID REFERENCES roadmaps(id) ON DELETE CASCADE,
-  competency_id UUID REFERENCES competencies(id),
-  title VARCHAR(255),
-  description TEXT,
-  order_index INTEGER,
-  estimated_duration_hours INTEGER,
-  status VARCHAR(50) CHECK (status IN ('not_started', 'in_progress', 'completed')),
-  completed_at TIMESTAMP
-);
-
--- Таблица: learning_materials
-CREATE TABLE IF NOT EXISTS learning_materials (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  roadmap_section_id UUID REFERENCES roadmap_sections(id) ON DELETE CASCADE,
-  type VARCHAR(50) CHECK (type IN ('article', 'video', 'book', 'course', 'documentation', 'tutorial')),
-  title VARCHAR(255),
-  description TEXT,
-  url TEXT,
-  author VARCHAR(255),
-  duration_minutes INTEGER,
-  difficulty VARCHAR(50),
-  language VARCHAR(10),
-  is_free BOOLEAN DEFAULT true,
-  order_index INTEGER,
-  rating FLOAT
-);
-
--- Таблица: practice_tasks
-CREATE TABLE IF NOT EXISTS practice_tasks (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  roadmap_section_id UUID REFERENCES roadmap_sections(id) ON DELETE CASCADE,
-  title VARCHAR(255),
-  description TEXT,
-  task_type VARCHAR(50) CHECK (task_type IN ('coding', 'quiz', 'project', 'case_study')),
-  difficulty INTEGER CHECK (difficulty BETWEEN 1 AND 5),
-  estimated_time_minutes INTEGER,
-  requirements JSONB,
-  hints JSONB,
-  solution_example TEXT,
-  order_index INTEGER
-);
-
--- Таблица: self_check_questions
-CREATE TABLE IF NOT EXISTS self_check_questions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  roadmap_section_id UUID REFERENCES roadmap_sections(id) ON DELETE CASCADE,
-  question_text TEXT,
-  question_type VARCHAR(50),
-  options JSONB,
-  correct_answer TEXT,
-  explanation TEXT,
-  difficulty INTEGER CHECK (difficulty BETWEEN 1 AND 5),
-  order_index INTEGER
-);
-
--- Таблица: user_progress
-CREATE TABLE IF NOT EXISTS user_progress (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  roadmap_section_id UUID REFERENCES roadmap_sections(id) ON DELETE CASCADE,
-  status VARCHAR(50) CHECK (status IN ('not_started', 'in_progress', 'completed')),
-  progress_percentage INTEGER CHECK (progress_percentage BETWEEN 0 AND 100),
-  notes TEXT,
-  started_at TIMESTAMP,
-  completed_at TIMESTAMP,
-  last_activity_at TIMESTAMP DEFAULT NOW()
-);
 
 -- Индексы для оптимизации запросов
 CREATE INDEX IF NOT EXISTS idx_directions_name ON directions(name);
@@ -249,9 +166,4 @@ CREATE INDEX IF NOT EXISTS idx_questions_competency_id ON questions(competency_i
 CREATE INDEX IF NOT EXISTS idx_questions_competency_difficulty ON questions(competency_id, difficulty);
 CREATE INDEX IF NOT EXISTS idx_question_history_competency_assessment_id ON question_history(competency_assessment_id);
 CREATE INDEX IF NOT EXISTS idx_question_history_question_id ON question_history(question_id);
-CREATE INDEX IF NOT EXISTS idx_roadmaps_assessment_id ON roadmaps(assessment_id);
-CREATE INDEX IF NOT EXISTS idx_roadmap_sections_roadmap_id ON roadmap_sections(roadmap_id);
-CREATE INDEX IF NOT EXISTS idx_learning_materials_roadmap_section_id ON learning_materials(roadmap_section_id);
-CREATE INDEX IF NOT EXISTS idx_practice_tasks_roadmap_section_id ON practice_tasks(roadmap_section_id);
-CREATE INDEX IF NOT EXISTS idx_self_check_questions_roadmap_section_id ON self_check_questions(roadmap_section_id);
-CREATE INDEX IF NOT EXISTS idx_user_progress_user_id ON user_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_assessments_user_direction_technology ON assessments(user_id, direction_id, technology_id);
