@@ -878,29 +878,54 @@ class SupabaseService:
     async def update_question_history(
         self,
         question_id: str,
+        score: Optional[int] = None,
+        is_correct: Optional[bool] = None,
+        understanding_depth: Optional[str] = None,
+        feedback: Optional[str] = None,
+        knowledge_gaps: Optional[List[str]] = None,
+        time_spent_seconds: Optional[int] = None,
+        # Для обратной совместимости (deprecated, будут игнорироваться)
         user_answer_transcript: Optional[str] = None,
         audio_duration_seconds: Optional[int] = None,
         transcription_confidence: Optional[float] = None,
-        is_correct: Optional[bool] = None,
-        ai_evaluation: Optional[Dict] = None,
-        time_spent_seconds: Optional[int] = None
+        ai_evaluation: Optional[Dict] = None
     ) -> Dict:
-        """Обновить запись вопроса с ответом"""
+        """
+        Обновить запись вопроса с ответом.
+        Сохраняет только оценки и результаты, без текстовых транскриптов.
+        """
         try:
             update_data = {}
-            if user_answer_transcript is not None:
-                update_data['user_answer_transcript'] = user_answer_transcript
-            if audio_duration_seconds is not None:
-                update_data['audio_duration_seconds'] = audio_duration_seconds
-            if transcription_confidence is not None:
-                update_data['transcription_confidence'] = transcription_confidence
+            
+            # Новые структурированные поля
+            if score is not None:
+                update_data['score'] = score
             if is_correct is not None:
                 update_data['is_correct'] = is_correct
-            if ai_evaluation is not None:
-                update_data['ai_evaluation'] = ai_evaluation
+            if understanding_depth is not None:
+                update_data['understanding_depth'] = understanding_depth
+            if feedback is not None:
+                update_data['feedback'] = feedback
+            if knowledge_gaps is not None:
+                update_data['knowledge_gaps'] = knowledge_gaps
             if time_spent_seconds is not None:
                 update_data['time_spent_seconds'] = time_spent_seconds
-            if user_answer_transcript is not None:
+            
+            # Для обратной совместимости: если передан ai_evaluation, извлекаем данные
+            if ai_evaluation is not None:
+                if 'score' not in update_data and 'score' in ai_evaluation:
+                    update_data['score'] = ai_evaluation['score']
+                if 'is_correct' not in update_data and 'isCorrect' in ai_evaluation:
+                    update_data['is_correct'] = ai_evaluation['isCorrect']
+                if 'understanding_depth' not in update_data and 'understandingDepth' in ai_evaluation:
+                    update_data['understanding_depth'] = ai_evaluation['understandingDepth']
+                if 'feedback' not in update_data and 'feedback' in ai_evaluation:
+                    update_data['feedback'] = ai_evaluation['feedback']
+                if 'knowledge_gaps' not in update_data and 'knowledgeGaps' in ai_evaluation:
+                    update_data['knowledge_gaps'] = ai_evaluation['knowledgeGaps']
+            
+            # Устанавливаем время ответа, если есть данные для сохранения
+            if update_data:
                 update_data['answered_at'] = datetime.utcnow().isoformat()
 
             response = self.client.table('question_history') \

@@ -5,7 +5,7 @@ import logging
 import json
 from app.config import settings
 from app.database import init_db
-from app.api import roles, assessments, questions, admin
+from app.api import roles, assessments, questions, admin, catalog
 
 # Настройка логирования
 logging.basicConfig(
@@ -55,10 +55,11 @@ app.add_middleware(
 )
 
 # Подключаем роутеры
-app.include_router(roles.router)
-app.include_router(assessments.router)
-app.include_router(questions.router)
-app.include_router(admin.router)
+app.include_router(catalog.router)      # Новый: каталог направлений и технологий
+app.include_router(assessments.router)  # Основные endpoints для assessments
+app.include_router(questions.router)    # Legacy: будут deprecated в пользу assessments/{id}/questions
+app.include_router(roles.router)        # Legacy: для обратной совместимости
+app.include_router(admin.router)        # Административные операции
 
 
 @app.on_event("startup")

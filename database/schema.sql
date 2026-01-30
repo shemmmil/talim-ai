@@ -136,12 +136,21 @@ CREATE TABLE IF NOT EXISTS question_history (
   question_text TEXT NOT NULL,
   question_type VARCHAR(50),
   difficulty_level INTEGER CHECK (difficulty_level BETWEEN 1 AND 5),
+  
+  -- Оптимизированные поля для оценки (v1.1.0+)
+  score INTEGER CHECK (score BETWEEN 1 AND 5),
+  is_correct BOOLEAN,
+  understanding_depth VARCHAR(20) CHECK (understanding_depth IN ('shallow', 'medium', 'deep')),
+  feedback TEXT,
+  knowledge_gaps TEXT[],
+  time_spent_seconds INTEGER,
+  
+  -- Deprecated поля (для обратной совместимости, будут удалены в будущем)
   user_answer_transcript TEXT,
   audio_duration_seconds INTEGER,
   transcription_confidence FLOAT,
-  is_correct BOOLEAN,
   ai_evaluation JSONB,
-  time_spent_seconds INTEGER,
+  
   asked_at TIMESTAMP DEFAULT NOW(),
   answered_at TIMESTAMP
 );

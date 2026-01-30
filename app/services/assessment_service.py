@@ -221,7 +221,8 @@ class AssessmentService:
             ca_id = ca.get('id')
             if ca_id:
                 question_history = await self.supabase.get_question_history(str(ca_id))
-                answered_count = len([q for q in question_history if q.get('user_answer_transcript')])
+                # Считаем вопросы с оценками (score не NULL)
+                answered_count = len([q for q in question_history if q.get('score') is not None])
                 total_answers += answered_count
                 if answered_count > 0:
                     answered_competencies += 1
@@ -277,23 +278,32 @@ class AssessmentService:
         all_knowledge_gaps = []
 
         for qh in question_history:
-            if qh.get('user_answer_transcript') and qh.get('ai_evaluation'):
-                eval_data = qh['ai_evaluation']
+            # Используем новые структурированные поля
+            if qh.get('score') is not None:
                 previous_answers.append({
                     'question': qh['question_text'],
-                    'answer': qh['user_answer_transcript'],
-                    'score': eval_data.get('score', 0)
+                    'answer': qh.get('feedback', ''),  # Используем фидбек вместо полного ответа
+                    'score': qh.get('score', 0)
                 })
                 # Собираем пробелы в знаниях
-                gaps = eval_data.get('knowledgeGaps', [])
-                all_knowledge_gaps.extend(gaps)
+                gaps = qh.get('knowledge_gaps', [])
+                if gaps:
+                    all_knowledge_gaps.extend(gaps)
 
-        # Определяем текущую сложность (последний вопрос или среднее)
+        # Определяем текущую сложность на основе последнего балла
         current_difficulty = 3
         if question_history:
             last_q = question_history[-1]
-            if last_q.get('ai_evaluation'):
-                current_difficulty = last_q['ai_evaluation'].get('nextDifficulty', 3)
+            last_score = last_q.get('score')
+            
+            if last_score is not None:
+                # Адаптивная сложность на основе балла
+                if last_score >= 4:
+                    current_difficulty = min(5, last_q.get('difficulty_level', 3) + 1)
+                elif last_score <= 2:
+                    current_difficulty = max(1, last_q.get('difficulty_level', 3) - 1)
+                else:
+                    current_difficulty = last_q.get('difficulty_level', 3)
             elif last_q.get('difficulty_level'):
                 current_difficulty = last_q['difficulty_level']
 

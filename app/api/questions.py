@@ -13,6 +13,7 @@ from app.schemas.question import QuestionGenerateResponse, AnswerResponse, Answe
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/questions", tags=["questions"])
+# Новые RESTful эндпоинты будут в /api/assessments/{id}/questions и /api/assessments/{id}/answers
 
 
 def get_assessment_service(
@@ -316,15 +317,16 @@ async def submit_answer(
                 detail="Failed to create question history record"
             )
 
-        # Обновляем вопрос с ответом и оценкой
+        # Обновляем вопрос с ответом и оценкой (сохраняем только оценки, не транскрипты)
         await supabase_service.update_question_history(
             question_id=str(question_history['id']),
-            user_answer_transcript=transcription['text'],
-            audio_duration_seconds=int(transcription.get('duration', 0)) if transcription.get('duration') else None,
-            transcription_confidence=None,  # Whisper не возвращает confidence напрямую
+            score=evaluation.get('score'),
             is_correct=evaluation.get('isCorrect'),
-            ai_evaluation=evaluation,
+            understanding_depth=evaluation.get('understandingDepth'),
+            feedback=evaluation.get('feedback'),
+            knowledge_gaps=evaluation.get('knowledgeGaps', []),
             time_spent_seconds=None  # Можно добавить из фронтенда
+            # Транскрипт НЕ сохраняется для экономии места
         )
 
         # Обновляем competency_assessment с учетом новой оценки
@@ -333,17 +335,19 @@ async def submit_answer(
             str(competency_assessment_id)
         )
 
-        answered_questions = [q for q in all_questions if q.get('ai_evaluation')]
+        # Используем новые структурированные поля
+        answered_questions = [q for q in all_questions if q.get('score') is not None]
         if answered_questions:
             # Вычисляем средний балл
-            scores = [q['ai_evaluation'].get('score', 0) for q in answered_questions]
+            scores = [q.get('score', 0) for q in answered_questions]
             avg_score = sum(scores) / len(scores) if scores else 0
 
             # Собираем все пробелы
             all_gaps = []
             for q in answered_questions:
-                gaps = q['ai_evaluation'].get('knowledgeGaps', [])
-                all_gaps.extend(gaps)
+                gaps = q.get('knowledge_gaps', [])
+                if gaps:
+                    all_gaps.extend(gaps)
 
             unique_gaps = list(set(all_gaps))
 
@@ -355,9 +359,18 @@ async def submit_answer(
             else:
                 confidence = 'low'
 
+            # Округляем оценку (минимум 1, максимум 5)
+            final_score = max(1, min(5, int(round(avg_score))))
+            
+            logger.info(
+                f"Updating competency assessment {competency_assessment_id}: "
+                f"scores={scores}, avg_score={avg_score}, final_score={final_score}, "
+                f"confidence={confidence}, answered={len(answered_questions)}/{len(all_questions)}"
+            )
+            
             await supabase_service.update_competency_assessment(
                 competency_assessment_id=str(competency_assessment_id),
-                ai_assessed_score=int(round(avg_score)),
+                ai_assessed_score=final_score,
                 confidence_level=confidence,
                 gap_analysis={'knowledgeGaps': unique_gaps},
                 test_session_data={
